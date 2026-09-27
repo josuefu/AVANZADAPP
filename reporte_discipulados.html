@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>📊 Reporte de Discipulados</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg1:#667eea; --bg2:#764ba2; --card:#ffffffee; --text:#2d3748; --muted:#718096;
+  --line:#e2e8f0;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --card:#1a202cee; --text:#edf2f7; --muted:#a0aec0; --line:#2d3748; } }
+:root[data-theme="dark"]{ --card:#1a202cee; --text:#edf2f7; --muted:#a0aec0; --line:#2d3748; }
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-gradient(135deg,var(--bg1) 0%,var(--bg2) 100%);min-height:100%;padding:24px 16px;color:var(--text);}
+html,body{height:100%;}
+.container{max-width:1300px;margin:0 auto;}
+.card{background:var(--card);backdrop-filter:blur(10px);border-radius:18px;padding:26px 30px;margin-bottom:24px;box-shadow:0 10px 40px rgba(0,0,0,.12);overflow-x:auto;}
+.header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;}
+.header h1{font-size:1.6rem;font-weight:700;background:linear-gradient(135deg,var(--bg1),var(--bg2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:flex;align-items:center;gap:10px;}
+.header h1 i{-webkit-text-fill-color:var(--bg1);}
+.stats-badge{display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+.stat-item{background:rgba(102,126,234,.12);padding:8px 16px;border-radius:30px;font-size:.82rem;font-weight:600;display:flex;align-items:center;gap:7px;}
+.stat-item span{color:var(--bg1);font-size:1.02rem;}
+.card-title{font-size:1.1rem;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.card-title i{color:var(--bg1);}
+.form-grid{display:grid;grid-template-columns:1.3fr 1fr 1.2fr;gap:20px;align-items:end;}
+.form-group{display:flex;flex-direction:column;gap:6px;}
+.form-group label{font-weight:600;color:var(--muted);font-size:.76rem;text-transform:uppercase;letter-spacing:.5px;}
+select,input{padding:10px 13px;border:2px solid var(--line);border-radius:10px;font-size:.92rem;background:#fff;color:#2d3748;width:100%;}
+select:focus,input:focus{outline:none;border-color:var(--bg1);box-shadow:0 0 0 4px rgba(102,126,234,.15);}
+.input-group-visitas{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.input-group-visitas input{text-align:center;font-weight:600;padding:9px;}
+.total-preview{display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--bg1),var(--bg2));color:#fff;padding:8px 18px;border-radius:30px;font-weight:700;gap:8px;margin-top:6px;}
+.btn{border:none;padding:10px 22px;border-radius:10px;font-size:.92rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:.2s;white-space:nowrap;}
+.btn:hover{transform:translateY(-2px);}
+.btn-primary{background:linear-gradient(135deg,var(--bg1),var(--bg2));color:#fff;width:100%;margin-top:8px;}
+.btn-green{background:linear-gradient(135deg,#48bb78,#38a169);color:#fff;}
+.btn-wa{background:#25D366;color:#fff;}
+.btn-pdf{background:#e53e3e;color:#fff;}
+.btn-red{background:#fee2e2;color:#991b1b;padding:6px 12px;font-size:.78rem;}
+.btn-ghost{background:#edf2f7;color:#2d3748;}
+.btn-sm{padding:6px 12px;font-size:.78rem;}
+table{width:100%;border-collapse:collapse;font-size:.86rem;}
+thead{background:linear-gradient(135deg,var(--bg1),var(--bg2));color:#fff;}
+th{padding:11px 9px;text-align:center;font-weight:600;font-size:.75rem;text-transform:uppercase;}
+td{padding:11px 9px;text-align:center;border-bottom:1px solid var(--line);}
+tbody tr:hover{background:rgba(102,126,234,.06);}
+.badge-clase{padding:4px 12px;border-radius:20px;font-size:.72rem;font-weight:700;background:#e0e7ff;color:#3730a3;}
+.badge-rol{padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700;}
+.badge-rol.super{background:#fef3c7;color:#92400e;}
+.badge-rol.disc{background:#e0e7ff;color:#3730a3;}
+.reporte-final-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:16px;}
+.reporte-card{background:rgba(102,126,234,.06);border-radius:12px;padding:18px;text-align:center;border:2px solid var(--line);}
+.reporte-card h3{color:var(--muted);font-size:.85rem;text-transform:uppercase;margin-bottom:8px;}
+.reporte-card .numero{font-size:2.1rem;font-weight:800;background:linear-gradient(135deg,var(--bg1),var(--bg2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.reporte-total{background:linear-gradient(135deg,var(--bg1),var(--bg2));color:#fff;grid-column:1/-1;}
+.reporte-total h3{color:rgba(255,255,255,.9);}
+.reporte-total .numero{background:#fff;-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.empty-state{text-align:center;padding:36px 20px;color:#a0aec0;}
+.empty-state i{font-size:2.3rem;margin-bottom:10px;display:block;}
+.resumen-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-top:10px;}
+.resumen-card{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:rgba(102,126,234,.04);}
+.resumen-card h4{font-size:.95rem;margin-bottom:4px;}
+.resumen-card .rtot{font-size:1.6rem;font-weight:800;color:var(--bg1);}
+.resumen-actions{display:flex;gap:8px;margin-top:10px;}
+/* Login */
+#loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;}
+.login-box{background:var(--card);border-radius:20px;padding:32px 30px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);position:relative;}
+.login-box h1{text-align:center;font-size:1.3rem;margin-bottom:6px;}
+.login-sub{text-align:center;color:var(--muted);font-size:.85rem;margin-bottom:20px;}
+.tabs{display:flex;gap:8px;margin-bottom:18px;background:#edf2f7;border-radius:12px;padding:4px;}
+.tab-btn{flex:1;border:none;background:transparent;padding:10px;border-radius:9px;font-weight:600;cursor:pointer;color:var(--muted);}
+.tab-btn.active{background:#fff;color:var(--bg1);box-shadow:0 2px 6px rgba(0,0,0,.1);}
+.error-msg{background:#fee2e2;color:#991b1b;padding:10px 14px;border-radius:10px;font-size:.85rem;margin-top:12px;display:none;}
+.hidden{display:none !important;}
+.notice{background:#fef3c7;color:#92400e;padding:10px 16px;border-radius:10px;font-size:.85rem;margin-bottom:18px;}
+.theme-switch{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));right:14px;display:flex;gap:6px;z-index:50;}
+.theme-dot{width:26px;height:26px;border-radius:50%;border:2px solid #fff;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.3);}
+.mini-form{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-bottom:14px;}
+.mini-form input{padding:8px 10px;font-size:.85rem;}
+@media (max-width:900px){.form-grid{grid-template-columns:1fr 1fr;}.reporte-final-grid{grid-template-columns:1fr 1fr;}.mini-form{grid-template-columns:1fr 1fr;}}
+@media (max-width:600px){.form-grid{grid-template-columns:1fr;}.reporte-final-grid{grid-template-columns:1fr;}.header{flex-direction:column;text-align:center;}}
+</style>
+</head>
+<body>
+
+<div class="theme-switch">
+  <div class="theme-dot" style="background:linear-gradient(135deg,#667eea,#764ba2);" title="Tema Púrpura" onclick="aplicarTema('purpura')"></div>
+  <div class="theme-dot" style="background:linear-gradient(135deg,#0ea5e9,#0d9488);" title="Tema Océano" onclick="aplicarTema('oceano')"></div>
+</div>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <h1><i class="fas fa-church"></i> Reporte de Discipulados</h1>
+    <p class="login-sub">Ingresa con tu credencial de discipulado</p>
+    <div class="tabs">
+      <button class="tab-btn active" id="tabDisc" onclick="cambiarTab('disc')">Discipulador</button>
+      <button class="tab-btn" id="tabSuper" onclick="cambiarTab('super')">Super Usuario</button>
+    </div>
+    <div id="loginDisc">
+      <div class="form-group" style="margin-bottom:14px;">
+        <label>Discipulado</label>
+        <select id="loginDiscipulado"><option>Cargando...</option></select>
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="loginPass" placeholder="Contraseña asignada">
+      </div>
+    </div>
+    <div id="loginSuper" class="hidden">
+      <div class="form-group" style="margin-bottom:14px;">
+        <label>Usuario</label>
+        <input type="text" id="superUser" placeholder="admin">
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="superPass" placeholder="Contraseña de super usuario">
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="intentarLogin()"><i class="fas fa-right-to-bracket"></i> Entrar</button>
+    <div class="error-msg" id="loginError"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="container hidden" id="appScreen">
+  <div class="card header">
+    <h1><i class="fas fa-church"></i> Reporte de Discipulados</h1>
+    <div class="stats-badge">
+      <div class="stat-item"><i class="fas fa-users"></i> Visitas: <span id="totalVisitas">0</span></div>
+      <div class="stat-item"><i class="fas fa-file-alt"></i> Reportes: <span id="totalReportes">0</span></div>
+      <div class="stat-item" id="rolBadgeWrap"></div>
+      <button class="btn btn-ghost btn-sm" onclick="cerrarSesion()"><i class="fas fa-right-from-bracket"></i> Salir</button>
+    </div>
+  </div>
+
+  <div class="notice hidden" id="modoLocalNotice"><i class="fas fa-triangle-exclamation"></i> No hay conexión a la base de datos compartida (necesitas ser al menos Colaborador en este artefacto). Los datos se guardan solo en este navegador.</div>
+
+  <div class="card">
+    <div class="card-title"><i class="fas fa-pen"></i> Nuevo Reporte <span id="discActualLabel" style="font-weight:400;color:var(--muted);font-size:.85rem;"></span></div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label><i class="fas fa-user"></i> Discipulado</label>
+        <select id="discipulo"></select>
+      </div>
+      <div class="form-group">
+        <label><i class="fas fa-calendar-alt"></i> Clase</label>
+        <select id="clase"></select>
+      </div>
+      <div class="form-group">
+        <label><i class="fas fa-users"></i> Visitas</label>
+        <div class="input-group-visitas">
+          <div class="form-group"><label style="font-size:.68rem;">Adultos</label><input type="number" id="adultos" min="0" value="0"></div>
+          <div class="form-group"><label style="font-size:.68rem;">Adolesc.</label><input type="number" id="adolescentes" min="0" value="0"></div>
+          <div class="form-group"><label style="font-size:.68rem;">Niños</label><input type="number" id="ninos" min="0" value="0"></div>
+        </div>
+        <div class="total-preview"><i class="fas fa-calculator"></i> Total: <span id="totalPreview">0</span></div>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="btnEnviar"><i class="fas fa-paper-plane"></i> Enviar Reporte</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><i class="fas fa-chart-bar"></i> Reporte Final - Resumen General
+      <button class="btn btn-green btn-sm" id="btnExportar" style="margin-left:auto;"><i class="fas fa-file-lines"></i> Exportar TXT</button>
+    </div>
+    <div class="reporte-final-grid" id="reporteFinalGrid"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><i class="fas fa-share-nodes"></i> Enviar Reporte por Discipulado</div>
+    <div class="resumen-grid" id="resumenGrid"></div>
+  </div>
+
+  <div class="card hidden" id="adminCard">
+    <div class="card-title"><i class="fas fa-user-shield"></i> Panel de Super Usuario</div>
+
+    <h4 style="margin-bottom:8px;"><i class="fas fa-users"></i> Discipulados y credenciales</h4>
+    <div class="mini-form">
+      <input id="nuevoDiscNombre" placeholder="Nombre del discipulador">
+      <input id="nuevoDiscLugar" placeholder="Lugar / número">
+      <input id="nuevoDiscTel" placeholder="WhatsApp (opcional, ej 504xxxxxxxx)">
+      <button class="btn btn-green btn-sm" onclick="agregarDiscipulado()"><i class="fas fa-plus"></i> Agregar</button>
+    </div>
+    <div class="table-container">
+      <table>
+        <thead><tr><th>Discipulado</th><th>Lugar</th><th>Usuario</th><th>Contraseña</th><th>WhatsApp</th><th>Acciones</th></tr></thead>
+        <tbody id="cuerpoDiscAdmin"></tbody>
+      </table>
+    </div>
+
+    <h4 style="margin:22px 0 8px;"><i class="fas fa-calendar-days"></i> Clases</h4>
+    <div class="mini-form" style="grid-template-columns:1fr 1fr auto;">
+      <input id="nuevaClaseLabel" placeholder="Nombre de la clase (ej. Clase 15)">
+      <input id="nuevaClaseFecha" placeholder="Fecha (ej. 12-ago-2026)">
+      <button class="btn btn-green btn-sm" onclick="agregarClase()"><i class="fas fa-plus"></i> Agregar</button>
+    </div>
+    <div class="table-container">
+      <table>
+        <thead><tr><th>Clase</th><th>Fecha</th><th>Acciones</th></tr></thead>
+        <tbody id="cuerpoClaseAdmin"></tbody>
+      </table>
+    </div>
+    <div id="seedBox" class="hidden" style="margin-top:16px;">
+      <button class="btn btn-ghost" onclick="sembrarDatosIniciales()"><i class="fas fa-seedling"></i> Cargar lista inicial de 18 discipulados y clases 12-14</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><i class="fas fa-list"></i> Reportes Enviados</div>
+    <div class="table-container">
+      <table>
+        <thead><tr><th>Discipulado</th><th>Clase</th><th>Fecha</th><th>Adultos</th><th>Adolesc.</th><th>Niños</th><th>Total</th><th>Acción</th></tr></thead>
+        <tbody id="cuerpoTabla"><tr><td colspan="8"><div class="empty-state"><i class="fas fa-inbox"></i><p>No hay reportes enviados aún</p></div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const TEMAS = {
+    purpura:{bg1:'#667eea',bg2:'#764ba2'},
+    oceano:{bg1:'#0ea5e9',bg2:'#0d9488'}
+  };
+  window.aplicarTema = function(nombre){
+    const t = TEMAS[nombre]; if(!t) return;
+    document.documentElement.style.setProperty('--bg1', t.bg1);
+    document.documentElement.style.setProperty('--bg2', t.bg2);
+    try{ localStorage.setItem('temaDiscipulados', nombre); }catch(e){}
+  };
+  (function(){ try{ aplicarTema(localStorage.getItem('temaDiscipulados')||'purpura'); }catch(e){ aplicarTema('purpura'); } })();
+
+  function quitarAcentos(s){ return s.normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
+  function generarPassword(nombre, id){
+    const letras = quitarAcentos(nombre).replace(/[^a-zA-Z]/g,"").slice(0,2).toLowerCase()||"xx";
+    const num = String(Math.abs(hashStr(id))%100).padStart(2,"0");
+    return letras+num+"26";
+  }
+  function hashStr(s){ let h=0; for(let i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))|0; } return h; }
+
+  const SUPER_USER = { usuario: "admin", password: "SuperAdmin2026*" };
+
+  // ---------- Conexión a Supabase (opcional) ----------
+  // 1) Crea un proyecto en https://supabase.com
+  // 2) Ejecuta el SQL de configuracion.sql en el editor SQL de tu proyecto
+  // 3) Pega aquí tu URL y tu llave "anon public" (Project Settings > API)
+  const SUPABASE_URL = "";           // ej: "https://xxxxxxxx.supabase.co"
+  const SUPABASE_ANON_KEY = "";      // ej: "eyJhbGciOi..."
+
+  function camelToSnake(s){ return s.replace(/([A-Z])/g,'_$1').toLowerCase(); }
+  function snakeToCamel(s){ return s.replace(/_([a-z0-9])/g,(_,c)=>c.toUpperCase()); }
+  function objToSnake(o){ const r={}; Object.keys(o).forEach(k=>{ if(k!=='id') r[camelToSnake(k)]=o[k]; }); return r; }
+  function rowToData(row){ const r={}; Object.keys(row).forEach(k=>{ if(k!=='id') r[snakeToCamel(k)]=row[k]; }); return r; }
+
+  function crearAdaptadorSupabase(client){
+    function coleccion(tabla){
+      return {
+        onSnapshot(next, errorCb){
+          let activo = true;
+          async function cargar(){
+            const { data, error } = await client.from(tabla).select('*');
+            if(!activo) return;
+            if(error){ errorCb && errorCb(error); return; }
+            next({ docs: (data||[]).map(row=>({ id: row.id, data: ()=>rowToData(row) })) });
+          }
+          cargar();
+          const intervalo = setInterval(cargar, 4000); // refresco cada 4s (sin Realtime)
+          return ()=>{ activo=false; clearInterval(intervalo); };
+        },
+        async add(datos){
+          const { data, error } = await client.from(tabla).insert(objToSnake(datos)).select().single();
+          if(error) throw error;
+          return { id: data.id };
+        },
+        doc(id){
+          return {
+            async update(datos){ const { error } = await client.from(tabla).update(objToSnake(datos)).eq('id', id); if(error) throw error; },
+            async delete(){ const { error } = await client.from(tabla).delete().eq('id', id); if(error) throw error; }
+          };
+        }
+      };
+    }
+    return { collection: coleccion };
+  }
+
+  const SEED_DISCIPULADOS = [
+    ["Adán Sagastume","1. El Dorado"],["Jorge y Olga de Mejía","2. Buenos Aires"],
+    ["Geronimo y Lilian de Rapalo","3. El Jaral"],["Keni y Lizeth de Muñoz","4. La Aguita"],
+    ["Yessica Sagastume","5. Barrio Eucalipto"],["Cristian y Karla de Gacia","6. El Bijao"],
+    ["Lourdes Maldonado","7. B. el cruce"],["Alicia Sagastume","8. La Montreal"],
+    ["Carlos Lara","9. La Bethel"],["David y Gecia de Milla","10. El Guayabo"],
+    ["Jesus y Helen de Guardado","11. El Edén"],["Oneyda Lopez","12. Agua Azul Sierra"],
+    ["Yuri Yanira Fernandez Paz","13. La Fe"],["Alma García","14. La Bethel"],
+    ["Mauricio Paz","15. La Fe 2"],["Salvador Garcia","16. Buena Vista"],
+    ["Ramon y Karen de Hernandez","17. Brisas del canal"],["Alba Teresa Hernández","18. Canaveral"]
+  ];
+  const SEED_CLASES = [["Clase 12","1-jul-2026"],["Clase 13","15-jul-2026"],["Clase 14","29-jul-2026"]];
+
+  let sesion = null;
+  let dbNS = null;
+  let unsubDisc=null, unsubClase=null, unsubRep=null;
+  let discipulados = [];
+  let clases = [];
+  let reportesCache = [];
+  const LOCAL_KEY_R='reportesDiscipuladosLocal', LOCAL_KEY_D='discipuladosLocal', LOCAL_KEY_C='clasesLocal';
+  function leerLocal(k,def){ try{ return JSON.parse(localStorage.getItem(k)||JSON.stringify(def)); }catch(e){ return def; } }
+  function guardarLocal(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+
+  async function conectarDB(){
+    if(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase){
+      try{
+        const cliente = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        dbNS = crearAdaptadorSupabase(cliente);
+        document.getElementById('modoLocalNotice').classList.add('hidden');
+        return;
+      }catch(e){ console.error('Error conectando a Supabase:', e); }
+    }
+    try{ if(window.claude && window.claude.use){ dbNS = await window.claude.use('db'); } }catch(e){ dbNS=null; }
+    document.getElementById('modoLocalNotice').classList.toggle('hidden', !!dbNS);
+  }
+
+  function poblarSelects(){
+    const selLogin = document.getElementById('loginDiscipulado');
+    const selApp = document.getElementById('discipulo');
+    const opts = discipulados.map(d=>`<option value="${d.id}">${d.nombre} — ${d.lugar}</option>`).join('') || '<option value="">Sin discipulados registrados</option>';
+    selLogin.innerHTML = opts;
+    selApp.innerHTML = opts;
+    const selClase = document.getElementById('clase');
+    selClase.innerHTML = clases.map(c=>`<option value="${c.id}">📅 ${c.label} (${c.fecha})</option>`).join('') || '<option value="">Sin clases registradas</option>';
+  }
+
+  async function cargarConfigInicial(){
+    await conectarDB();
+    if(dbNS){
+      unsubDisc = dbNS.collection('discipulados').onSnapshot(snap=>{
+        discipulados = snap.docs.map(d=>({id:d.id, ...d.data()}));
+        poblarSelects(); renderAdminDisc(); renderResumen(); renderizarTodo();
+      });
+      unsubClase = dbNS.collection('clases').onSnapshot(snap=>{
+        clases = snap.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>(a.orden||0)-(b.orden||0));
+        poblarSelects(); renderAdminClase(); renderizarTodo();
+      });
+    } else {
+      discipulados = leerLocal(LOCAL_KEY_D, []);
+      clases = leerLocal(LOCAL_KEY_C, []);
+      poblarSelects();
+    }
+  }
+
+  window.cambiarTab = function(tipo){
+    document.getElementById('tabDisc').classList.toggle('active', tipo==='disc');
+    document.getElementById('tabSuper').classList.toggle('active', tipo==='super');
+    document.getElementById('loginDisc').classList.toggle('hidden', tipo!=='disc');
+    document.getElementById('loginSuper').classList.toggle('hidden', tipo!=='super');
+    document.getElementById('loginError').style.display='none';
+  };
+
+  window.intentarLogin = function(){
+    const errBox = document.getElementById('loginError');
+    errBox.style.display='none';
+    const esSuperTab = !document.getElementById('loginSuper').classList.contains('hidden');
+    if(esSuperTab){
+      const u = document.getElementById('superUser').value.trim();
+      const p = document.getElementById('superPass').value;
+      if(u === SUPER_USER.usuario && p === SUPER_USER.password){
+        sesion = {tipo:'super', discipuladoId:null};
+        iniciarApp();
+      } else { errBox.textContent='⚠️ Usuario o contraseña de Super Usuario incorrectos.'; errBox.style.display='block'; }
+    } else {
+      const id = document.getElementById('loginDiscipulado').value;
+      const p = document.getElementById('loginPass').value;
+      const d = discipulados.find(x=>x.id===id);
+      if(d && p === d.password){
+        sesion = {tipo:'disc', discipuladoId:d.id};
+        iniciarApp();
+      } else { errBox.textContent='⚠️ Contraseña incorrecta para este discipulado.'; errBox.style.display='block'; }
+    }
+    if(sesion){ try{ sessionStorage.setItem('sesionDiscipulados', JSON.stringify(sesion)); }catch(e){} }
+  };
+
+  window.cerrarSesion = function(){
+    if(unsubRep){ unsubRep(); unsubRep=null; }
+    sesion=null;
+    try{ sessionStorage.removeItem('sesionDiscipulados'); }catch(e){}
+    document.getElementById('appScreen').classList.add('hidden');
+    document.getElementById('loginScreen').classList.remove('hidden');
+  };
+
+  async function iniciarApp(){
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('appScreen').classList.remove('hidden');
+    const esSuper = sesion.tipo==='super';
+    document.getElementById('rolBadgeWrap').innerHTML = esSuper
+      ? '<span class="badge-rol super"><i class="fas fa-crown"></i> Super Usuario</span>'
+      : `<span class="badge-rol disc"><i class="fas fa-user"></i> ${nombreDisc(sesion.discipuladoId)}</span>`;
+    document.getElementById('adminCard').classList.toggle('hidden', !esSuper);
+    document.getElementById('discActualLabel').textContent = esSuper ? '(puedes registrar por cualquier discipulado)' : `(registrando por: ${nombreDisc(sesion.discipuladoId)})`;
+
+    const selApp = document.getElementById('discipulo');
+    if(!esSuper){ selApp.value = sesion.discipuladoId; selApp.disabled=true; } else { selApp.disabled=false; }
+
+    document.getElementById('seedBox').classList.toggle('hidden', !(esSuper && discipulados.length===0));
+
+    if(dbNS){
+      unsubRep = dbNS.collection('reportes').onSnapshot(snap=>{
+        reportesCache = snap.docs.map(d=>({id:d.id, ...d.data()}));
+        renderizarTodo(); renderResumen();
+      }, err=>{ console.error(err); document.getElementById('modoLocalNotice').classList.remove('hidden'); });
+    } else {
+      reportesCache = leerLocal(LOCAL_KEY_R, []);
+      renderizarTodo(); renderResumen();
+    }
+    actualizarTotalPreview();
+  }
+
+  function nombreDisc(id){ const d=discipulados.find(x=>x.id===id); return d?d.nombre:'(desconocido)'; }
+  function claseLabel(id){ const c=clases.find(x=>x.id===id); return c?c.label:'(clase eliminada)'; }
+
+  // ---------- CRUD Discipulados (solo super, requiere permiso de escritura) ----------
+  window.agregarDiscipulado = async function(){
+    const nombre = document.getElementById('nuevoDiscNombre').value.trim();
+    const lugar = document.getElementById('nuevoDiscLugar').value.trim();
+    const telefono = document.getElementById('nuevoDiscTel').value.trim();
+    if(!nombre){ alert('Escribe el nombre del discipulador.'); return; }
+    const tempId = 'd_'+Date.now();
+    const data = { nombre, lugar, telefono, password: generarPassword(nombre, tempId) };
+    if(dbNS){ await dbNS.collection('discipulados').add(data); }
+    else { const lista=leerLocal(LOCAL_KEY_D,[]); lista.push({id:tempId,...data}); guardarLocal(LOCAL_KEY_D,lista); discipulados=lista; poblarSelects(); renderAdminDisc(); }
+    document.getElementById('nuevoDiscNombre').value='';
+    document.getElementById('nuevoDiscLugar').value='';
+    document.getElementById('nuevoDiscTel').value='';
+  };
+  window.editarDiscipulado = async function(id){
+    const d = discipulados.find(x=>x.id===id); if(!d) return;
+    const nombre = prompt('Nombre:', d.nombre); if(nombre===null) return;
+    const lugar = prompt('Lugar:', d.lugar||''); if(lugar===null) return;
+    const telefono = prompt('WhatsApp (solo números, ej 504xxxxxxxx):', d.telefono||''); if(telefono===null) return;
+    if(dbNS){ await dbNS.collection('discipulados').doc(id).update({nombre,lugar,telefono}); }
+    else { const lista=leerLocal(LOCAL_KEY_D,[]).map(x=>x.id===id?{...x,nombre,lugar,telefono}:x); guardarLocal(LOCAL_KEY_D,lista); discipulados=lista; poblarSelects(); renderAdminDisc(); }
+  };
+  window.regenerarPassword = async function(id){
+    const d = discipulados.find(x=>x.id===id); if(!d) return;
+    if(!confirm('¿Generar una nueva contraseña para '+d.nombre+'?')) return;
+    const nueva = generarPassword(d.nombre, id+Date.now());
+    if(dbNS){ await dbNS.collection('discipulados').doc(id).update({password:nueva}); }
+    else { const lista=leerLocal(LOCAL_KEY_D,[]).map(x=>x.id===id?{...x,password:nueva}:x); guardarLocal(LOCAL_KEY_D,lista); discipulados=lista; renderAdminDisc(); }
+  };
+  window.eliminarDiscipulado = async function(id){
+    if(!confirm('¿Eliminar este discipulado? Sus reportes ya enviados no se borrarán.')) return;
+    if(dbNS){ await dbNS.collection('discipulados').doc(id).delete(); }
+    else { const lista=leerLocal(LOCAL_KEY_D,[]).filter(x=>x.id!==id); guardarLocal(LOCAL_KEY_D,lista); discipulados=lista; poblarSelects(); renderAdminDisc(); }
+  };
+
+  function renderAdminDisc(){
+    const tbody = document.getElementById('cuerpoDiscAdmin');
+    tbody.innerHTML = discipulados.map(d=>`<tr>
+      <td style="text-align:left;">${d.nombre}</td><td>${d.lugar||''}</td>
+      <td>${quitarAcentos(d.nombre).split(' ')[0]}</td><td><code>${d.password}</code></td>
+      <td>${d.telefono||'—'}</td>
+      <td style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm" onclick="editarDiscipulado('${d.id}')"><i class="fas fa-pen"></i></button>
+        <button class="btn btn-ghost btn-sm" onclick="regenerarPassword('${d.id}')"><i class="fas fa-key"></i></button>
+        <button class="btn btn-red btn-sm" onclick="eliminarDiscipulado('${d.id}')"><i class="fas fa-trash"></i></button>
+      </td></tr>`).join('') || '<tr><td colspan="6">Sin discipulados aún.</td></tr>';
+  }
+
+  // ---------- CRUD Clases ----------
+  window.agregarClase = async function(){
+    const label = document.getElementById('nuevaClaseLabel').value.trim();
+    const fecha = document.getElementById('nuevaClaseFecha').value.trim();
+    if(!label){ alert('Escribe el nombre de la clase.'); return; }
+    const data = { label, fecha, orden: clases.length };
+    if(dbNS){ await dbNS.collection('clases').add(data); }
+    else { const lista=leerLocal(LOCAL_KEY_C,[]); lista.push({id:'c_'+Date.now(),...data}); guardarLocal(LOCAL_KEY_C,lista); clases=lista; poblarSelects(); renderAdminClase(); }
+    document.getElementById('nuevaClaseLabel').value='';
+    document.getElementById('nuevaClaseFecha').value='';
+  };
+  window.editarClase = async function(id){
+    const c = clases.find(x=>x.id===id); if(!c) return;
+    const label = prompt('Nombre de la clase:', c.label); if(label===null) return;
+    const fecha = prompt('Fecha:', c.fecha||''); if(fecha===null) return;
+    if(dbNS){ await dbNS.collection('clases').doc(id).update({label,fecha}); }
+    else { const lista=leerLocal(LOCAL_KEY_C,[]).map(x=>x.id===id?{...x,label,fecha}:x); guardarLocal(LOCAL_KEY_C,lista); clases=lista; poblarSelects(); renderAdminClase(); }
+  };
+  window.eliminarClase = async function(id){
+    if(!confirm('¿Eliminar esta clase?')) return;
+    if(dbNS){ await dbNS.collection('clases').doc(id).delete(); }
+    else { const lista=leerLocal(LOCAL_KEY_C,[]).filter(x=>x.id!==id); guardarLocal(LOCAL_KEY_C,lista); clases=lista; poblarSelects(); renderAdminClase(); }
+  };
+  function renderAdminClase(){
+    const tbody = document.getElementById('cuerpoClaseAdmin');
+    tbody.innerHTML = clases.map(c=>`<tr><td>${c.label}</td><td>${c.fecha||''}</td>
+      <td style="display:flex;gap:6px;justify-content:center;">
+        <button class="btn btn-ghost btn-sm" onclick="editarClase('${c.id}')"><i class="fas fa-pen"></i></button>
+        <button class="btn btn-red btn-sm" onclick="eliminarClase('${c.id}')"><i class="fas fa-trash"></i></button>
+      </td></tr>`).join('') || '<tr><td colspan="3">Sin clases aún.</td></tr>';
+  }
+
+  window.sembrarDatosIniciales = async function(){
+    if(dbNS){
+      for(const [nombre,lugar] of SEED_DISCIPULADOS){ await dbNS.collection('discipulados').add({nombre,lugar,telefono:'',password:generarPassword(nombre,nombre+Math.random())}); }
+      let i=0; for(const [label,fecha] of SEED_CLASES){ await dbNS.collection('clases').add({label,fecha,orden:i++}); }
+    } else {
+      const dl = SEED_DISCIPULADOS.map(([nombre,lugar],i)=>({id:'d_'+i,nombre,lugar,telefono:'',password:generarPassword(nombre,'d_'+i)}));
+      const cl = SEED_CLASES.map(([label,fecha],i)=>({id:'c_'+i,label,fecha,orden:i}));
+      guardarLocal(LOCAL_KEY_D,dl); guardarLocal(LOCAL_KEY_C,cl);
+      discipulados=dl; clases=cl; poblarSelects(); renderAdminDisc(); renderAdminClase();
+    }
+    document.getElementById('seedBox').classList.add('hidden');
+  };
+
+  // ---------- Reportes ----------
+  async function crearReporte(reporte){
+    if(dbNS){ await dbNS.collection('reportes').add(reporte); }
+    else { const lista=leerLocal(LOCAL_KEY_R,[]); reporte.id='local_'+Date.now(); lista.push(reporte); guardarLocal(LOCAL_KEY_R,lista); reportesCache=lista; renderizarTodo(); renderResumen(); }
+  }
+  window.eliminarReporte = async function(id){
+    if(!confirm('¿Eliminar este reporte?')) return;
+    if(dbNS){ try{ await dbNS.collection('reportes').doc(id).delete(); }catch(e){ alert('No se pudo eliminar (requiere permiso de Colaborador o superior).'); } }
+    else { const lista=leerLocal(LOCAL_KEY_R,[]).filter(r=>r.id!==id); guardarLocal(LOCAL_KEY_R,lista); reportesCache=lista; renderizarTodo(); renderResumen(); }
+  };
+
+  function reportesVisibles(){
+    if(sesion.tipo==='super') return reportesCache;
+    return reportesCache.filter(r=>r.discipuladoId===sesion.discipuladoId);
+  }
+  function reportesDe(discipuladoId){ return reportesCache.filter(r=>r.discipuladoId===discipuladoId); }
+  function totalesDe(lista){
+    let a=0,ad=0,n=0; lista.forEach(r=>{a+=+r.adultos||0;ad+=+r.adolescentes||0;n+=+r.ninos||0;});
+    return {adultos:a,adolescentes:ad,ninos:n,total:a+ad+n};
+  }
+
+  function renderizarTodo(){
+    const visibles = reportesVisibles();
+    const t = totalesDe(visibles);
+    document.getElementById('totalVisitas').textContent = t.total;
+    document.getElementById('totalReportes').textContent = visibles.length;
+
+    const grid = document.getElementById('reporteFinalGrid');
+    let html = clases.map(c=>{
+      const tot = totalesDe(visibles.filter(r=>r.claseId===c.id)).total;
+      return `<div class="reporte-card"><h3>📅 ${c.label}</h3><div class="numero">${tot}</div></div>`;
+    }).join('');
+    html += `<div class="reporte-card reporte-total"><h3>🎯 Total General</h3><div class="numero">${t.total}</div></div>`;
+    grid.innerHTML = html;
+
+    const tbody = document.getElementById('cuerpoTabla');
+    if(visibles.length===0){
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><i class="fas fa-inbox"></i><p>No hay reportes enviados aún</p></div></td></tr>`;
+      return;
+    }
+    const ordenados = [...visibles].sort((a,b)=> new Date(b.fecha)-new Date(a.fecha));
+    tbody.innerHTML = ordenados.map(r=>{
+      const total=(+r.adultos||0)+(+r.adolescentes||0)+(+r.ninos||0);
+      const fechaStr = new Date(r.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      const puedeEliminar = sesion.tipo==='super' || r.discipuladoId===sesion.discipuladoId;
+      return `<tr>
+        <td><strong>${r.discipulado}</strong><br><small style="color:var(--muted);font-size:.72rem;">${r.lugar||''}</small></td>
+        <td><span class="badge-clase">${r.claseLabel||claseLabel(r.claseId)}</span></td>
+        <td style="font-size:.78rem;">${fechaStr}</td>
+        <td><strong>${r.adultos}</strong></td><td><strong>${r.adolescentes}</strong></td><td><strong>${r.ninos}</strong></td>
+        <td><span style="background:rgba(102,126,234,.12);padding:4px 12px;border-radius:20px;font-weight:700;color:var(--bg1);">${total}</span></td>
+        <td>${puedeEliminar?`<button class="btn btn-red btn-sm" onclick="eliminarReporte('${r.id}')"><i class="fas fa-trash-alt"></i></button>`:'—'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderResumen(){
+    if(!sesion) return;
+    const lista = sesion.tipo==='super' ? discipulados : discipulados.filter(d=>d.id===sesion.discipuladoId);
+    const grid = document.getElementById('resumenGrid');
+    grid.innerHTML = lista.map(d=>{
+      const t = totalesDe(reportesDe(d.id));
+      return `<div class="resumen-card">
+        <h4>${d.nombre}</h4><div style="color:var(--muted);font-size:.78rem;">${d.lugar||''}</div>
+        <div class="rtot">${t.total}<span style="font-size:.8rem;color:var(--muted);"> visitas</span></div>
+        <div class="resumen-actions">
+          <button class="btn btn-wa btn-sm" onclick="enviarWhatsApp('${d.id}')"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+          <button class="btn btn-pdf btn-sm" onclick="descargarPDF('${d.id}')"><i class="fas fa-file-pdf"></i> PDF</button>
+        </div></div>`;
+    }).join('') || '<p style="color:var(--muted);">No hay discipulados registrados aún.</p>';
+  }
+
+  function textoResumenDiscipulado(id){
+    const d = discipulados.find(x=>x.id===id); if(!d) return '';
+    const reps = reportesDe(id).sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
+    const t = totalesDe(reps);
+    let txt = `*Reporte de Discipulado*\n${d.nombre} — ${d.lugar||''}\n\n`;
+    txt += `Total visitas: ${t.total} (Adultos: ${t.adultos}, Adolescentes: ${t.adolescentes}, Niños: ${t.ninos})\n\n`;
+    txt += `Detalle:\n`;
+    reps.forEach(r=>{
+      const total=(+r.adultos||0)+(+r.adolescentes||0)+(+r.ninos||0);
+      const f = new Date(r.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'});
+      txt += `- ${r.claseLabel||claseLabel(r.claseId)} (${f}): ${total} visitas\n`;
+    });
+    return txt;
+  }
+
+  window.enviarWhatsApp = function(id){
+    const d = discipulados.find(x=>x.id===id);
+    const texto = encodeURIComponent(textoResumenDiscipulado(id));
+    let url;
+    if(d && d.telefono){ url = `https://wa.me/${d.telefono.replace(/[^0-9]/g,'')}?text=${texto}`; }
+    else { url = `https://api.whatsapp.com/send?text=${texto}`; }
+    window.open(url, '_blank');
+  };
+
+  window.descargarPDF = async function(id){
+    const d = discipulados.find(x=>x.id===id); if(!d) return;
+    const reps = reportesDe(id).sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
+    const t = totalesDe(reps);
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.setFontSize(16); doc.text('Reporte de Discipulado', 14, 18);
+    doc.setFontSize(11); doc.text(`${d.nombre} — ${d.lugar||''}`, 14, 27);
+    doc.text(`Total visitas: ${t.total}  (Adultos: ${t.adultos}, Adolescentes: ${t.adolescentes}, Niños: ${t.ninos})`, 14, 35);
+    let y = 46;
+    doc.setFontSize(10);
+    doc.text('Clase', 14, y); doc.text('Fecha', 90, y); doc.text('Total', 160, y); y+=6;
+    doc.line(14,y-4,196,y-4);
+    reps.forEach(r=>{
+      if(y>280){ doc.addPage(); y=20; }
+      const total=(+r.adultos||0)+(+r.adolescentes||0)+(+r.ninos||0);
+      const f = new Date(r.fecha).toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'});
+      doc.text(String(r.claseLabel||claseLabel(r.claseId)), 14, y);
+      doc.text(f, 90, y);
+      doc.text(String(total), 160, y);
+      y+=7;
+    });
+    const blob = doc.output('blob');
+    const filename = `reporte_${quitarAcentos(d.nombre).replace(/\s+/g,'_')}.pdf`;
+    try{
+      if(window.claude && window.claude.use){
+        const downloads = await window.claude.use('downloads');
+        if(downloads){ await downloads.save({filename, data: blob}); return; }
+      }
+    }catch(e){ /* cae a descarga directa */ }
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob); link.download = filename;
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+  };
+
+  function actualizarTotalPreview(){
+    const a=parseInt(document.getElementById('adultos').value)||0;
+    const b=parseInt(document.getElementById('adolescentes').value)||0;
+    const c=parseInt(document.getElementById('ninos').value)||0;
+    document.getElementById('totalPreview').textContent = a+b+c;
+  }
+
+  async function enviarReporte(){
+    const discipuloId = document.getElementById('discipulo').value;
+    const claseId = document.getElementById('clase').value;
+    const adultos = parseInt(document.getElementById('adultos').value)||0;
+    const adolescentes = parseInt(document.getElementById('adolescentes').value)||0;
+    const ninos = parseInt(document.getElementById('ninos').value)||0;
+    if(!discipuloId || !claseId){ alert('⚠️ Registra primero al menos un discipulado y una clase (panel de Super Usuario).'); return; }
+    if(adultos===0 && adolescentes===0 && ninos===0){ alert('⚠️ Debes ingresar al menos una visita.'); return; }
+    const d = discipulados.find(x=>x.id===discipuloId);
+    const c = clases.find(x=>x.id===claseId);
+    const reporte = { discipuladoId, discipulado: d?d.nombre:'', lugar: d?d.lugar:'', claseId, claseLabel: c?c.label:'', adultos, adolescentes, ninos, fecha: new Date().toISOString() };
+    await crearReporte(reporte);
+    document.getElementById('adultos').value='0'; document.getElementById('adolescentes').value='0'; document.getElementById('ninos').value='0';
+    actualizarTotalPreview();
+    const btn = document.getElementById('btnEnviar'); const original = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check"></i> ¡Enviado!';
+    setTimeout(()=>{ btn.innerHTML = original; }, 1400);
+  }
+
+  function exportarReporteTXT(){
+    const visibles = reportesVisibles();
+    if(visibles.length===0){ alert('No hay reportes para exportar.'); return; }
+    let texto = '=== REPORTE DE DISCIPULADOS ===\n\n';
+    texto += `Exportado por: ${sesion.tipo==='super'?'Super Usuario':nombreDisc(sesion.discipuladoId)}\n`;
+    texto += `Fecha: ${new Date().toLocaleString('es-ES')}\n\n`;
+    clases.forEach(c=>{ texto += `${c.label}: ${totalesDe(visibles.filter(r=>r.claseId===c.id)).total}\n`; });
+    texto += `TOTAL: ${totalesDe(visibles).total}\n\n`;
+    texto += 'Discipulado\tClase\tAdultos\tAdoles.\tNiños\tTotal\n';
+    [...visibles].sort((a,b)=>new Date(b.fecha)-new Date(a.fecha)).forEach(r=>{
+      const t=(+r.adultos||0)+(+r.adolescentes||0)+(+r.ninos||0);
+      texto += `${r.discipulado}\t${r.claseLabel||claseLabel(r.claseId)}\t${r.adultos}\t${r.adolescentes}\t${r.ninos}\t${t}\n`;
+    });
+    const blob = new Blob([texto], {type:'text/plain;charset=utf-8'});
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob); link.download = `reporte_discipulados_${new Date().toISOString().slice(0,10)}.txt`;
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+  }
+
+  document.addEventListener('DOMContentLoaded', async function(){
+    document.getElementById('btnEnviar').addEventListener('click', enviarReporte);
+    document.getElementById('btnExportar').addEventListener('click', exportarReporteTXT);
+    ['adultos','adolescentes','ninos'].forEach(id=> document.getElementById(id).addEventListener('input', actualizarTotalPreview));
+
+    await cargarConfigInicial();
+
+    try{
+      const guardada = JSON.parse(sessionStorage.getItem('sesionDiscipulados')||'null');
+      if(guardada){ sesion = guardada; iniciarApp(); }
+    }catch(e){}
+  });
+})();
+</script>
+</body>
+</html>
