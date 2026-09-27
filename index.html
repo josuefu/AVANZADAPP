@@ -140,7 +140,7 @@ tbody tr:hover{background:rgba(102,126,234,.06);}
     </div>
   </div>
 
-  <div class="notice hidden" id="modoLocalNotice"><i class="fas fa-triangle-exclamation"></i> No hay conexión a la base de datos compartida (necesitas ser al menos Colaborador en este artefacto). Los datos se guardan solo en este navegador.</div>
+  <div class="notice hidden" id="modoLocalNotice"><i class="fas fa-triangle-exclamation"></i> No hay conexión a una base de datos compartida. Los datos se están guardando solo en este navegador; en otro dispositivo no se verán. Configura Supabase (ver comentario en el código) para que todos vean los mismos datos.</div>
 
   <div class="card">
     <div class="card-title"><i class="fas fa-pen"></i> Nuevo Reporte <span id="discActualLabel" style="font-weight:400;color:var(--muted);font-size:.85rem;"></span></div>
@@ -247,12 +247,13 @@ tbody tr:hover{background:rgba(102,126,234,.06);}
 
   const SUPER_USER = { usuario: "admin", password: "SuperAdmin2026*" };
 
-  // ---------- Conexión a Supabase (opcional) ----------
-  // 1) Crea un proyecto en https://supabase.com
-  // 2) Ejecuta el SQL de configuracion.sql en el editor SQL de tu proyecto
-  // 3) Pega aquí tu URL y tu llave "anon public" (Project Settings > API)
-  const SUPABASE_URL = "";           // ej: "https://xxxxxxxx.supabase.co"
-  const SUPABASE_ANON_KEY = "";      // ej: "eyJhbGciOi..."
+  // ---------- Conexión a Supabase (RECOMENDADO para que todos los discipuladores, en cualquier celular, vean y guarden los mismos datos) ----------
+  // 1) Crea un proyecto gratis en https://supabase.com
+  // 2) Abre el "SQL editor" del proyecto y pega/ejecuta el contenido de configuracion.sql (te lo entregué aparte)
+  // 3) Ve a Project Settings > API y copia la "Project URL" y la llave "anon public"
+  // 4) Pégalas aquí abajo, entre las comillas:
+  const SUPABASE_URL = "https://mytpsfhxdqdlwbsvgfcb.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15dHBzZmh4ZHFkbHdic3ZnZmNiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0NzIzNzksImV4cCI6MjEwNjA0ODM3OX0.HAIvQv3ScgAZ87txohsVf2VWev1Rv-3ZAaAWE05_8Ok";
 
   function camelToSnake(s){ return s.replace(/([A-Z])/g,'_$1').toLowerCase(); }
   function snakeToCamel(s){ return s.replace(/_([a-z0-9])/g,(_,c)=>c.toUpperCase()); }
@@ -283,6 +284,28 @@ tbody tr:hover{background:rgba(102,126,234,.06);}
           return {
             async update(datos){ const { error } = await client.from(tabla).update(objToSnake(datos)).eq('id', id); if(error) throw error; },
             async delete(){ const { error } = await client.from(tabla).delete().eq('id', id); if(error) throw error; }
+          };
+        }
+      };
+    }
+    return { collection: coleccion };
+  }
+
+  // ---------- Adaptador para la base de datos propia del artefacto de Claude (capacidad "db") ----------
+  // Se usa automáticamente si NO configuraste Supabase arriba. Sirve para probar el guardado
+  // ya mismo, pero solo funciona entre personas que abren este artefacto con una cuenta de Claude
+  // dentro de tu misma organización — para discipuladores externos sin cuenta, usa Supabase.
+  function crearAdaptadorClaudeDB(db){
+    function coleccion(tabla){
+      const ref = db.collection(tabla);
+      return {
+        onSnapshot(next, errorCb){ return ref.onSnapshot(next, errorCb); },
+        async add(datos){ const docRef = await ref.add(datos); return { id: docRef.id }; },
+        doc(id){
+          const docRef = ref.doc(id);
+          return {
+            update(datos){ return docRef.update(datos); },
+            delete(){ return docRef.delete(); }
           };
         }
       };
@@ -322,7 +345,12 @@ tbody tr:hover{background:rgba(102,126,234,.06);}
         return;
       }catch(e){ console.error('Error conectando a Supabase:', e); }
     }
-    try{ if(window.claude && window.claude.use){ dbNS = await window.claude.use('db'); } }catch(e){ dbNS=null; }
+    try{
+      if(window.claude && window.claude.use){
+        const claudeDb = await window.claude.use('db');
+        if(claudeDb){ dbNS = crearAdaptadorClaudeDB(claudeDb); }
+      }
+    }catch(e){ dbNS=null; }
     document.getElementById('modoLocalNotice').classList.toggle('hidden', !!dbNS);
   }
 
@@ -423,7 +451,7 @@ tbody tr:hover{background:rgba(102,126,234,.06);}
   function nombreDisc(id){ const d=discipulados.find(x=>x.id===id); return d?d.nombre:'(desconocido)'; }
   function claseLabel(id){ const c=clases.find(x=>x.id===id); return c?c.label:'(clase eliminada)'; }
 
-  // ---------- CRUD Discipulados (solo super, requiere permiso de escritura) ----------
+  // ---------- CRUD Discipulados (solo super) ----------
   window.agregarDiscipulado = async function(){
     const nombre = document.getElementById('nuevoDiscNombre').value.trim();
     const lugar = document.getElementById('nuevoDiscLugar').value.trim();
@@ -523,7 +551,7 @@ tbody tr:hover{background:rgba(102,126,234,.06);}
   }
   window.eliminarReporte = async function(id){
     if(!confirm('¿Eliminar este reporte?')) return;
-    if(dbNS){ try{ await dbNS.collection('reportes').doc(id).delete(); }catch(e){ alert('No se pudo eliminar (requiere permiso de Colaborador o superior).'); } }
+    if(dbNS){ try{ await dbNS.collection('reportes').doc(id).delete(); }catch(e){ alert('No se pudo eliminar (requiere permiso de escritura sobre la base de datos).'); } }
     else { const lista=leerLocal(LOCAL_KEY_R,[]).filter(r=>r.id!==id); guardarLocal(LOCAL_KEY_R,lista); reportesCache=lista; renderizarTodo(); renderResumen(); }
   };
 
@@ -656,6 +684,7 @@ tbody tr:hover{background:rgba(102,126,234,.06);}
   }
 
   async function enviarReporte(){
+    const btn = document.getElementById('btnEnviar');
     const discipuloId = document.getElementById('discipulo').value;
     const claseId = document.getElementById('clase').value;
     const adultos = parseInt(document.getElementById('adultos').value)||0;
@@ -666,12 +695,22 @@ tbody tr:hover{background:rgba(102,126,234,.06);}
     const d = discipulados.find(x=>x.id===discipuloId);
     const c = clases.find(x=>x.id===claseId);
     const reporte = { discipuladoId, discipulado: d?d.nombre:'', lugar: d?d.lugar:'', claseId, claseLabel: c?c.label:'', adultos, adolescentes, ninos, fecha: new Date().toISOString() };
-    await crearReporte(reporte);
-    document.getElementById('adultos').value='0'; document.getElementById('adolescentes').value='0'; document.getElementById('ninos').value='0';
-    actualizarTotalPreview();
-    const btn = document.getElementById('btnEnviar'); const original = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-check"></i> ¡Enviado!';
-    setTimeout(()=>{ btn.innerHTML = original; }, 1400);
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+    try{
+      await crearReporte(reporte);
+      document.getElementById('adultos').value='0'; document.getElementById('adolescentes').value='0'; document.getElementById('ninos').value='0';
+      actualizarTotalPreview();
+      btn.innerHTML = '<i class="fas fa-check"></i> ¡Guardado!';
+    }catch(e){
+      console.error('Error guardando el reporte:', e);
+      alert('⚠️ No se pudo guardar el reporte. Revisa tu conexión e inténtalo de nuevo.');
+      btn.innerHTML = original;
+    } finally {
+      btn.disabled = false;
+      setTimeout(()=>{ btn.innerHTML = original; }, 1400);
+    }
   }
 
   function exportarReporteTXT(){
